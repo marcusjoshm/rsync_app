@@ -192,27 +192,27 @@ verify_transfer() {
         return 1
     fi
     
-    if ! check_directory "$dest_dir"; then
-        print_status $RED "Destination directory does not exist for validation"
-        return 1
-    fi
+    # Ensure destination directory exists for rsync validation
+    mkdir -p "$dest_dir"
     
-    # Compare directory sizes
-    local source_size=$(du -s "$source_dir" 2>/dev/null | cut -f1)
-    local dest_size=$(du -s "$dest_dir" 2>/dev/null | cut -f1)
+    # Use rsync dry-run with itemize changes and --size-only to check for differences
+    local rsync_output
+    rsync_output=$(rsync -avin --delete --size-only --no-perms --exclude='._*' "$source_dir/" "$dest_dir/" 2>&1)
     
-    # Count files
-    local source_files=$(find "$source_dir" -type f 2>/dev/null | wc -l)
-    local dest_files=$(find "$dest_dir" -type f 2>/dev/null | wc -l)
+    # Filter out summary lines and harmless directory metadata changes
+    local changes
+    changes=$(echo "$rsync_output" | grep -vE '^(sending incremental file list|sent |received |total size is |speedup is |building file list|$|./$)' | grep -vE '^\.d')
     
-    print_status $BLUE "Source size: $source_size blocks, Files: $source_files"
-    print_status $BLUE "Destination size: $dest_size blocks, Files: $dest_files"
-    
-    if [ "$source_size" -eq "$dest_size" ] && [ "$source_files" -eq "$dest_files" ]; then
-        print_status $GREEN "✓ Verification passed"
+    if [ -z "$changes" ]; then
+        print_status $GREEN "✓ Verification passed (no relevant differences)"
         return 0
     else
-        print_status $RED "✗ Verification failed"
+        print_status $RED "✗ Verification failed: Relevant differences detected between source and destination."
+        print_status $YELLOW "Summary of differences:"
+        echo "$changes" | head -20
+        if [ $(echo "$changes" | wc -l) -gt 20 ]; then
+            print_status $YELLOW "(Output truncated. Run rsync -avin --delete --size-only --no-perms '$source_dir/' '$dest_dir/' to see all differences.)"
+        fi
         return 1
     fi
 }
@@ -235,8 +235,8 @@ transfer_directory() {
     local dest_parent=$(dirname "$dest_path")
     mkdir -p "$dest_parent"
     
-    # Transfer using rsync with progress and verification
-    if rsync -av --progress "$source_path/" "$dest_path/"; then
+    # Transfer using rsync with progress, verification, and --delete
+    if rsync -av --delete --progress --no-perms --exclude='._*' "$source_path/" "$dest_path/"; then
         print_status $GREEN "✓ Transfer completed"
         return 0
     else
