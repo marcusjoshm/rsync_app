@@ -36,7 +36,7 @@ chmod +x /usr/bin/yq
 
 1. Download the script and make it executable:
 ```bash
-chmod +x transfer.sh
+chmod +x rsync_app.sh
 ```
 
 2. Create a configuration file (see Configuration section below)
@@ -47,22 +47,22 @@ chmod +x transfer.sh
 
 ```bash
 # Transfer and validate (default mode)
-./transfer.sh
+./rsync_app.sh
 
 # Transfer only
-./transfer.sh -t
-./transfer.sh --transfer
+./rsync_app.sh -t
+./rsync_app.sh --transfer
 
 # Validate only
-./transfer.sh -v
-./transfer.sh --validate
+./rsync_app.sh -v
+./rsync_app.sh --validate
 
 # Use custom configuration file
-./transfer.sh -c my_config.yaml
+./rsync_app.sh -c my_config.yaml
 
 # Show help
-./transfer.sh -h
-./transfer.sh --help
+./rsync_app.sh -h
+./rsync_app.sh --help
 ```
 
 ### Operation Modes
@@ -149,7 +149,7 @@ transfers:
 
 **Command:**
 ```bash
-./transfer.sh -c backup.yaml
+./rsync_app.sh -c backup.yaml
 ```
 
 ### Example 2: Lab Data Organization
@@ -178,27 +178,27 @@ If you've already transferred files manually or with another tool:
 
 ```bash
 # Just validate existing transfers
-./transfer.sh -v -c previous_transfer.yaml
+./rsync_app.sh -v -c previous_transfer.yaml
 ```
 
 ## Workflow Examples
 
 ### Standard Workflow
 1. Create configuration file
-2. Run transfer and validation: `./transfer.sh`
+2. Run transfer and validation: `./rsync_app.sh`
 3. Review summary
 4. Optionally delete source files when prompted
 
 ### Cautious Workflow
 1. Create configuration file
-2. Transfer only: `./transfer.sh -t`
+2. Transfer only: `./rsync_app.sh -t`
 3. Manually verify some files
-4. Validate: `./transfer.sh -v`
+4. Validate: `./rsync_app.sh -v`
 5. Delete sources if validation passes
 
 ### Batch Processing Workflow
 1. Create configuration with multiple transfer groups
-2. Run: `./transfer.sh`
+2. Run: `./rsync_app.sh`
 3. Script processes all transfers sequentially
 4. Review summary of all successes/failures
 5. Cleanup successful transfers
@@ -278,14 +278,14 @@ Destination size: 1024 blocks, Files: 42
 Store configurations in a dedicated directory:
 ```bash
 mkdir ~/transfer_configs
-./transfer.sh -c ~/transfer_configs/weekly_backup.yaml
+./rsync_app.sh -c ~/transfer_configs/weekly_backup.yaml
 ```
 
 ### Scheduling with Cron
 Add to crontab for automated transfers:
 ```bash
 # Weekly backup every Sunday at 2 AM
-0 2 * * 0 /path/to/transfer.sh -c /path/to/weekly_backup.yaml
+0 2 * * 0 /path/to/rsync_app.sh -c /path/to/weekly_backup.yaml
 ```
 
 ### Integration with Other Scripts
@@ -295,7 +295,7 @@ Add to crontab for automated transfers:
 echo "Preparing for transfer..."
 
 # Run transfer
-/path/to/transfer.sh -t -c config.yaml
+/path/to/rsync_app.sh -t -c config.yaml
 
 # Post-transfer tasks
 if [ $? -eq 0 ]; then
