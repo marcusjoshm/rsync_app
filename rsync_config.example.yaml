@@ -1,0 +1,39 @@
+# Mixed Transfer Configuration Example
+# Shows how to use both individual and grouped transfers
+
+# Individual transfers - for cases where you need explicit control
+transfers:
+  # Custom mapping where source name doesn't match destination
+  - source: /Volumes/OLD_DRIVE/experiment_v1_final
+    destination: /Volumes/ARCHIVE/2024_experiments/experiment_001
+    
+  # Renaming during transfer
+  - source: /Volumes/TEMP/poorly_named_folder
+    destination: /Volumes/ORGANIZED/proper_project_name
+
+# Grouped transfers - for bulk operations
+transfer_groups:
+  # Archive multiple experiments to year-based folders
+  - destination_base: /Volumes/ARCHIVE/2025_experiments
+    preserve_source_name: true
+    sources:
+      - /Volumes/WORKING/exp_20250101
+      - /Volumes/WORKING/exp_20250115
+      - /Volumes/WORKING/exp_20250201
+      - /Volumes/WORKING/exp_20250215
+  
+  # Consolidate data from multiple drives to one location
+  - destination_base: /Volumes/CENTRAL_STORAGE/consolidated_data
+    preserve_source_name: true
+    sources:
+      - /Volumes/DRIVE_A/project_data
+      - /Volumes/DRIVE_B/project_data
+      - /Volumes/DRIVE_C/project_data
+  
+  # Merge multiple sources into single directory (preserve_source_name: false)
+  - destination_base: /Volumes/MERGED/all_logs
+    preserve_source_name: false  # All sources merge into same directory
+    sources:
+      - /Volumes/SERVER1/logs
+      - /Volumes/SERVER2/logs
+      - /Volumes/SERVER3/logs

@@ -1,0 +1,2 @@
+# Ignore the actual config file, keep the example
+rsync_config.yaml 
