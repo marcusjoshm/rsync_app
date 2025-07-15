@@ -39,21 +39,30 @@ chmod +x /usr/bin/yq
 chmod +x rsync_app.sh
 ```
 
-2. Create a configuration file (see Configuration section below)
+2. Create a configuration file named `rsync_config.yaml` in the same directory as the script:
+```bash
+# Copy the example configuration file as a template
+cp rsync_config.example.yaml rsync_config.yaml
+
+# Edit the configuration file with your transfer settings
+nano rsync_config.yaml  # or use your preferred editor
+```
+
+The `rsync_config.example.yaml` file includes examples of both individual and grouped transfers to help you get started.
 
 ## Usage
 
 ### Basic Commands
 
 ```bash
-# Transfer and validate (default mode)
+# Transfer and validate (default mode) - uses rsync_config.yaml
 ./rsync_app.sh
 
-# Transfer only
+# Transfer only - uses rsync_config.yaml
 ./rsync_app.sh -t
 ./rsync_app.sh --transfer
 
-# Validate only
+# Validate only - uses rsync_config.yaml
 ./rsync_app.sh -v
 ./rsync_app.sh --validate
 
@@ -73,7 +82,14 @@ chmod +x rsync_app.sh
 
 ## Configuration
 
-The script uses YAML configuration files to define transfer operations. You can use two approaches:
+The script uses YAML configuration files to define transfer operations. By default, it looks for `rsync_config.yaml` in the current directory. 
+
+**Getting Started**: Use the included `rsync_config.example.yaml` as a template:
+```bash
+cp rsync_config.example.yaml rsync_config.yaml
+```
+
+You can use two approaches for defining transfers:
 
 ### Approach 1: Individual Transfers
 
@@ -140,21 +156,33 @@ transfer_groups:
 
 ### Example 1: Simple Backup
 
-**Config file (`backup.yaml`):**
+**Config file (`rsync_config.yaml`):**
 ```yaml
 transfers:
   - source: /Users/john/Documents/important_project
     destination: /Volumes/BACKUP/john_backup/important_project
 ```
 
-**Command:**
+**Setup and Command:**
+```bash
+# Copy the example template
+cp rsync_config.example.yaml rsync_config.yaml
+
+# Edit with your paths
+nano rsync_config.yaml
+
+# Run the transfer
+./rsync_app.sh
+```
+
+**Or with custom config file:**
 ```bash
 ./rsync_app.sh -c backup.yaml
 ```
 
 ### Example 2: Lab Data Organization
 
-**Config file (`lab_data.yaml`):**
+**Config file (`rsync_config.yaml`):**
 ```yaml
 transfer_groups:
   # Raw data to NX-01-A/1
@@ -172,36 +200,54 @@ transfer_groups:
       - /Volumes/LEELAB/JM_Data/processed/2025-06-10_analysis_v2
 ```
 
+**Setup and Command:**
+```bash
+# Copy the example template
+cp rsync_config.example.yaml rsync_config.yaml
+
+# Edit with your lab data paths
+nano rsync_config.yaml
+
+# Run the transfer
+./rsync_app.sh
+```
+
 ### Example 3: Validation After Manual Transfer
 
 If you've already transferred files manually or with another tool:
 
 ```bash
-# Just validate existing transfers
+# Just validate existing transfers using default config
+./rsync_app.sh -v
+
+# Or with custom config file
 ./rsync_app.sh -v -c previous_transfer.yaml
 ```
 
 ## Workflow Examples
 
 ### Standard Workflow
-1. Create configuration file
-2. Run transfer and validation: `./rsync_app.sh`
-3. Review summary
-4. Optionally delete source files when prompted
+1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
+2. Edit the configuration file with your transfer settings
+3. Run transfer and validation: `./rsync_app.sh`
+4. Review summary
+5. Optionally delete source files when prompted
 
 ### Cautious Workflow
-1. Create configuration file
-2. Transfer only: `./rsync_app.sh -t`
-3. Manually verify some files
-4. Validate: `./rsync_app.sh -v`
-5. Delete sources if validation passes
+1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
+2. Edit the configuration file with your transfer settings
+3. Transfer only: `./rsync_app.sh -t`
+4. Manually verify some files
+5. Validate: `./rsync_app.sh -v`
+6. Delete sources if validation passes
 
 ### Batch Processing Workflow
-1. Create configuration with multiple transfer groups
-2. Run: `./rsync_app.sh`
-3. Script processes all transfers sequentially
-4. Review summary of all successes/failures
-5. Cleanup successful transfers
+1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
+2. Edit the configuration file with multiple transfer groups
+3. Run: `./rsync_app.sh`
+4. Script processes all transfers sequentially
+5. Review summary of all successes/failures
+6. Cleanup successful transfers
 
 ## Output and Logging
 
@@ -278,6 +324,9 @@ Destination size: 1024 blocks, Files: 42
 Store configurations in a dedicated directory:
 ```bash
 mkdir ~/transfer_configs
+cp rsync_config.example.yaml ~/transfer_configs/weekly_backup.yaml
+# Edit the copied file
+nano ~/transfer_configs/weekly_backup.yaml
 ./rsync_app.sh -c ~/transfer_configs/weekly_backup.yaml
 ```
 
