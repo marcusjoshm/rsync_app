@@ -77,11 +77,11 @@ The `rsync_config.example.yaml` file includes examples of both individual and gr
 ### Examples
 
 ```sh
-./rsync_app.sh                # Transfer, validate, and cleanup using default config
-./rsync_app.sh -t             # Transfer only
-./rsync_app.sh -v             # Validate only
-./rsync_app.sh -d             # Validate and prompt for cleanup only
-./rsync_app.sh -td            # Transfer, validate, and cleanup (same as default)
+./rsync_app.sh                      # Transfer, validate, and cleanup using default config
+./rsync_app.sh -t                   # Transfer only
+./rsync_app.sh -v                   # Validate only
+./rsync_app.sh -d                   # Validate and prompt for cleanup only
+./rsync_app.sh -td                  # Transfer, validate, and cleanup (same as default)
 ./rsync_app.sh -ctvd myconfig.yaml  # Transfer, validate, and cleanup with custom config
 ```
 
