@@ -20,6 +20,7 @@ CONFIG_FILE="rsync_config.yaml"
 MODE_TRANSFER_ONLY="transfer"
 MODE_VALIDATE_ONLY="validate"
 MODE_BOTH="both"
+MODE_VALIDATE_AND_CLEANUP="validate_and_cleanup"
 SCRIPT_MODE=""
 
 # Arrays to store transfer mappings
@@ -38,16 +39,27 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -t, --transfer          Transfer only mode (default)"
-    echo "  -v, --validate          Validate only mode"
-    echo "  -b, --both              Transfer and validate mode"
-    echo "  -c, --config <file>     YAML config file (default: rsync_config.yaml)"
-    echo "  -h, --help              Show this help message"
+    echo "  -t                    Transfer only mode"
+    echo "  -v                    Validate only mode (no cleanup)"
+    echo "  -d                    Cleanup mode (validate, then prompt for deletion)"
+    echo "  -c, --config <file>   YAML config file (default: rsync_config.yaml)"
+    echo "  -h, --help            Show this help message"
+    echo ""
+    echo "Combined options:"
+    echo "  Options can be combined (e.g., -tv, -vt, -ctvd, -td, -dt)"
+    echo "  If both -t and -d are present (with or without -v), the full workflow is run: transfer, validate, and prompt for cleanup (default behavior)"
+    echo "  If only -d (or -vd, -dv) is present, only validation and cleanup are performed (no transfer)"
+    echo ""
+    echo "Default behavior (no arguments): Transfer, validate, and prompt for cleanup"
     echo ""
     echo "Examples:"
-    echo "  $0 -t                      # Transfer only using default config"
-    echo "  $0 -v -c myconfig.yaml     # Validate only using custom config"
-    echo "  $0 -b                      # Both transfer and validate"
+    echo "  $0                      # Transfer, validate, and cleanup using default config"
+    echo "  $0 -t                   # Transfer only using default config"
+    echo "  $0 -v                   # Validate only using default config"
+    echo "  $0 -d                   # Validate and prompt for cleanup only"
+    echo "  $0 -td                  # Transfer, validate, and cleanup (same as default)"
+    echo "  $0 -c myconfig.yaml     # Use custom config file"
+    echo "  $0 -ctvd myconfig.yaml  # Transfer, validate, and cleanup with custom config"
     echo ""
     echo "Config file supports two formats:"
     echo ""
@@ -334,8 +346,8 @@ process_transfers() {
         done
     fi
     
-    # Cleanup phase for successful transfers (validation mode or both mode)
-    if [ "$mode" = "$MODE_VALIDATE_ONLY" ] || [ "$mode" = "$MODE_BOTH" ]; then
+    # Cleanup phase for successful transfers (only for default mode with cleanup)
+    if [ "$mode" = "$MODE_BOTH" ]; then
         if [ ${#successful_transfers[@]} -gt 0 ]; then
             echo
             print_status $YELLOW "=== Cleanup Phase ==="
@@ -364,32 +376,100 @@ process_transfers() {
 
 # Parse command line arguments
 parse_arguments() {
-    # Default mode
+    # Default mode is transfer + validate + cleanup
     SCRIPT_MODE=$MODE_BOTH
     
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -t|--transfer)
-                SCRIPT_MODE=$MODE_TRANSFER_ONLY
+            # Handle combined short options (e.g., -ctvd, -tvd, etc.)
+            -*)
+                if [[ ${#1} -gt 2 && $1 =~ ^-[a-zA-Z]+$ ]]; then
+                    local combined_opts="${1:1}"
+                    local i=0
+                    local has_transfer=false
+                    local has_validate=false
+                    local has_cleanup=false
+                    local has_config=false
+                    while [[ $i -lt ${#combined_opts} ]]; do
+                        local opt="${combined_opts:$i:1}"
+                        case $opt in
+                            t)
+                                has_transfer=true
+                                ;;
+                            v)
+                                has_validate=true
+                                ;;
+                            d)
+                                has_cleanup=true
+                                ;;
+                            c)
+                                if [[ $((i+1)) -lt ${#combined_opts} ]]; then
+                                    print_status $RED "ERROR: -c option requires an argument and cannot be combined with other options"
+                                    usage
+                                else
+                                    if [[ $# -lt 2 ]]; then
+                                        print_status $RED "ERROR: -c option requires an argument"
+                                        usage
+                                    fi
+                                    CONFIG_FILE="$2"
+                                    shift
+                                    has_config=true
+                                fi
+                                ;;
+                            h)
+                                usage
+                                ;;
+                            *)
+                                print_status $RED "Unknown option: -$opt"
+                                usage
+                                ;;
+                        esac
+                        ((i++))
+                    done
+                    # Determine the mode based on the combined options
+                    if [ "$has_transfer" = true ] && [ "$has_cleanup" = true ]; then
+                        SCRIPT_MODE=$MODE_BOTH
+                    elif [ "$has_cleanup" = true ]; then
+                        SCRIPT_MODE=$MODE_VALIDATE_AND_CLEANUP
+                    elif [ "$has_transfer" = true ] && [ "$has_validate" = true ]; then
+                        SCRIPT_MODE="transfer_validate_no_cleanup"
+                    elif [ "$has_transfer" = true ]; then
+                        SCRIPT_MODE=$MODE_TRANSFER_ONLY
+                    elif [ "$has_validate" = true ]; then
+                        SCRIPT_MODE=$MODE_VALIDATE_ONLY
+                    fi
+                else
+                    case $1 in
+                        -t|--transfer)
+                            SCRIPT_MODE=$MODE_TRANSFER_ONLY
+                            ;;
+                        -v|--validate)
+                            SCRIPT_MODE=$MODE_VALIDATE_ONLY
+                            ;;
+                        -d|--cleanup)
+                            SCRIPT_MODE=$MODE_VALIDATE_AND_CLEANUP
+                            ;;
+                        -c|--config)
+                            if [[ $# -lt 2 ]]; then
+                                print_status $RED "ERROR: -c/--config option requires an argument"
+                                usage
+                            fi
+                            CONFIG_FILE="$2"
+                            shift
+                            ;;
+                        -h|--help)
+                            usage
+                            ;;
+                        *)
+                            print_status $RED "Unknown option: $1"
+                            usage
+                            ;;
+                    esac
+                fi
                 shift
-                ;;
-            -v|--validate)
-                SCRIPT_MODE=$MODE_VALIDATE_ONLY
-                shift
-                ;;
-            -b|--both)
-                SCRIPT_MODE=$MODE_BOTH
-                shift
-                ;;
-            -c|--config)
-                CONFIG_FILE="$2"
-                shift 2
-                ;;
-            -h|--help)
-                usage
                 ;;
             *)
-                print_status $RED "Unknown option: $1"
+                print_status $RED "Unknown argument: $1"
                 usage
                 ;;
         esac
@@ -429,15 +509,45 @@ main() {
             echo
             print_status $YELLOW "Note: Run with -v option to validate the transfers"
             ;;
-            
         $MODE_VALIDATE_ONLY)
             print_status $YELLOW "=== Validate Only Mode ==="
             process_transfers $MODE_VALIDATE_ONLY
             ;;
-            
-        $MODE_BOTH)
-            print_status $YELLOW "=== Transfer and Validate Mode ==="
+        "transfer_validate_no_cleanup")
+            print_status $YELLOW "=== Transfer and Validate Mode (No Cleanup) ==="
             process_transfers $MODE_BOTH
+            ;;
+        $MODE_BOTH)
+            print_status $YELLOW "=== Transfer, Validate, and Cleanup Mode ==="
+            process_transfers $MODE_BOTH
+            ;;
+        $MODE_VALIDATE_AND_CLEANUP)
+            print_status $YELLOW "=== Validate and Cleanup Mode ==="
+            # For each mapping, validate, then prompt for deletion if validation passes
+            local any_validated=false
+            for ((i=0; i<${#SOURCES[@]}; i++)); do
+                local source="${SOURCES[$i]}"
+                local dest="${DESTINATIONS[$i]}"
+                echo
+                print_status $YELLOW "Validating: $source → $dest"
+                if verify_transfer "$source" "$dest"; then
+                    any_validated=true
+                    print_status $YELLOW "Source directory eligible for deletion: $source"
+                    read -p "Delete $source? (y/N): " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        rm -rf "$source"
+                        print_status $GREEN "✓ Deleted $source"
+                    else
+                        print_status $YELLOW "Skipped deletion of $source"
+                    fi
+                else
+                    print_status $RED "Validation failed for $source → $dest. Skipping deletion."
+                fi
+            done
+            if [ "$any_validated" = false ]; then
+                print_status $YELLOW "No directories were validated for cleanup."
+            fi
             ;;
     esac
     
