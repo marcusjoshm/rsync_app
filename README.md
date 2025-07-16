@@ -52,26 +52,37 @@ The `rsync_config.example.yaml` file includes examples of both individual and gr
 
 ## Usage
 
-### Basic Commands
+```sh
+./rsync_app.sh [OPTIONS]
+```
 
-```bash
-# Transfer and validate (default mode) - uses rsync_config.yaml
-./rsync_app.sh
+### Options
 
-# Transfer only - uses rsync_config.yaml
-./rsync_app.sh -t
-./rsync_app.sh --transfer
+- `-t` &mdash; Transfer only mode
+- `-v` &mdash; Validate only mode (no cleanup)
+- `-d` &mdash; Cleanup mode (validate, then prompt for deletion)
+- `-c <file>`, `--config <file>` &mdash; YAML config file (default: `rsync_config.yaml`)
+- `-h`, `--help` &mdash; Show help message
 
-# Validate only - uses rsync_config.yaml
-./rsync_app.sh -v
-./rsync_app.sh --validate
+#### Combined Options
 
-# Use custom configuration file
-./rsync_app.sh -c my_config.yaml
+- Options can be combined (e.g., `-tv`, `-vt`, `-ctvd`, `-td`, `-dt`)
+- If both `-t` and `-d` are present (with or without `-v`), the full workflow is run: transfer, validate, and prompt for cleanup (default behavior)
+- If only `-d` (or `-vd`, `-dv`) is present, only validation and cleanup are performed (no transfer)
 
-# Show help
-./rsync_app.sh -h
-./rsync_app.sh --help
+#### Default Behavior
+
+- **No arguments**: Transfer, validate, and prompt for cleanup (same as `-td` or `-dt`)
+
+### Examples
+
+```sh
+./rsync_app.sh                # Transfer, validate, and cleanup using default config
+./rsync_app.sh -t             # Transfer only
+./rsync_app.sh -v             # Validate only
+./rsync_app.sh -d             # Validate and prompt for cleanup only
+./rsync_app.sh -td            # Transfer, validate, and cleanup (same as default)
+./rsync_app.sh -ctvd myconfig.yaml  # Transfer, validate, and cleanup with custom config
 ```
 
 ### Operation Modes
