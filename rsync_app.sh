@@ -195,35 +195,39 @@ check_directory() {
 verify_transfer() {
     local source_dir=$1
     local dest_dir=$2
-    
+
     print_status $BLUE "Verifying transfer integrity..."
-    
+
     # Check if both directories exist
     if ! check_directory "$source_dir"; then
         print_status $RED "Source directory does not exist for validation"
         return 1
     fi
-    
-    # Ensure destination directory exists for rsync validation
-    mkdir -p "$dest_dir"
-    
+
+    if ! check_directory "$dest_dir"; then
+        print_status $RED "Destination directory does not exist for validation"
+        return 1
+    fi
+
     # Use rsync dry-run with itemize changes and --size-only to check for differences
+    # NOTE: We do NOT use --delete here because we only care if source files exist in destination
+    # Extra files in destination are acceptable and should not fail validation
     local rsync_output
-    rsync_output=$(rsync -avin --delete --size-only --no-perms --exclude='._*' "$source_dir/" "$dest_dir/" 2>&1)
-    
-    # Filter out summary lines and harmless directory metadata changes
+    rsync_output=$(rsync -avin --size-only --no-perms --exclude='._*' --exclude='.DS_Store' "$source_dir/" "$dest_dir/" 2>&1)
+
+    # Filter out summary lines, informational messages, and harmless directory metadata changes
     local changes
-    changes=$(echo "$rsync_output" | grep -vE '^(sending incremental file list|sent |received |total size is |speedup is |building file list|$|./$)' | grep -vE '^\.d')
-    
+    changes=$(echo "$rsync_output" | grep -vE '^(sending incremental file list|sent |received |total size is |speedup is |building file list|Transfer starting:|$|./$)' | grep -vE '^\.d')
+
     if [ -z "$changes" ]; then
-        print_status $GREEN "✓ Verification passed (no relevant differences)"
+        print_status $GREEN "✓ Verification passed: All source files exist in destination with matching sizes"
         return 0
     else
-        print_status $RED "✗ Verification failed: Relevant differences detected between source and destination."
+        print_status $RED "✗ Verification failed: Some source files are missing or differ in destination."
         print_status $YELLOW "Summary of differences:"
         echo "$changes" | head -20
         if [ $(echo "$changes" | wc -l) -gt 20 ]; then
-            print_status $YELLOW "(Output truncated. Run rsync -avin --delete --size-only --no-perms '$source_dir/' '$dest_dir/' to see all differences.)"
+            print_status $YELLOW "(Output truncated. Run rsync -avin --size-only --no-perms '$source_dir/' '$dest_dir/' to see all differences.)"
         fi
         return 1
     fi
@@ -247,8 +251,10 @@ transfer_directory() {
     local dest_parent=$(dirname "$dest_path")
     mkdir -p "$dest_parent"
     
-    # Transfer using rsync with progress, verification, and --delete
-    if rsync -av --delete --progress --no-perms --exclude='._*' "$source_path/" "$dest_path/"; then
+    # Transfer using rsync with progress and verification
+    # NOTE: --delete is intentionally NOT used here to preserve existing files in destination
+    # Only source directories should be deleted (after validation) when cleanup is requested
+    if rsync -av --progress --no-perms --exclude='._*' --exclude='.DS_Store' "$source_path/" "$dest_path/"; then
         print_status $GREEN "✓ Transfer completed"
         return 0
     else

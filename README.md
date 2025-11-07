@@ -93,7 +93,75 @@ The `rsync_config.example.yaml` file includes examples of both individual and gr
 
 ## Configuration
 
-The script uses YAML configuration files to define transfer operations. By default, it looks for `rsync_config.yaml` in the current directory. 
+The script supports two configuration methods: **CSV (recommended for most users)** or **YAML (for advanced users)**.
+
+### Method 1: CSV Configuration (Recommended)
+
+**Perfect for users familiar with spreadsheets!** Edit transfers in Excel, Numbers, Google Sheets, or any spreadsheet application.
+
+#### Quick Start with CSV
+
+1. **Edit the CSV file** (`rsync_sources.csv`):
+   ```csv
+   source,destination
+   /Volumes/SOURCE/data,/Volumes/BACKUP/data
+   /Volumes/LAB/experiment,/Volumes/ARCHIVE/experiment
+   ```
+
+2. **Generate the config**:
+   ```bash
+   ./config_builder.sh
+   ```
+
+3. **Run the transfer**:
+   ```bash
+   ./rsync_app.sh
+   ```
+
+#### CSV Format
+
+- **Header row required**: `source,destination`
+- **One transfer per row**: Each row defines a source → destination transfer
+- **Comments**: Rows starting with `#` are ignored
+- **Empty rows**: Automatically skipped
+- **Editing**: Open `rsync_sources.csv` in any spreadsheet application, save as CSV
+
+#### CSV Configuration Builder
+
+The `config_builder.sh` script converts your CSV file into the required YAML format:
+
+```bash
+./config_builder.sh [OPTIONS]
+
+Options:
+  -i, --input <file>    CSV input file (default: rsync_sources.csv)
+  -o, --output <file>   YAML output file (default: rsync_config.yaml)
+  -h, --help            Show help message
+```
+
+**Examples:**
+```bash
+# Use default files (rsync_sources.csv → rsync_config.yaml)
+./config_builder.sh
+
+# Use custom CSV file
+./config_builder.sh -i my_transfers.csv
+
+# Specify both input and output
+./config_builder.sh -i transfers.csv -o custom_config.yaml
+```
+
+The builder will:
+- ✓ Validate CSV format
+- ✓ Check if source directories exist (warnings only)
+- ✓ Show preview of generated configuration
+- ✓ Prompt before overwriting existing config files
+
+---
+
+### Method 2: YAML Configuration (Advanced)
+
+For advanced users who prefer direct YAML editing.
 
 **Getting Started**: Use the included `rsync_config.example.yaml` as a template:
 ```bash
@@ -237,7 +305,24 @@ If you've already transferred files manually or with another tool:
 
 ## Workflow Examples
 
-### Standard Workflow
+### CSV Workflow (Recommended for Most Users)
+1. Open `rsync_sources.csv` in Excel, Numbers, or Google Sheets
+2. Add your source and destination paths (one transfer per row)
+3. Save as CSV
+4. Generate config: `./config_builder.sh`
+5. Run transfer: `./rsync_app.sh`
+6. Review summary and optionally delete source files when prompted
+
+### Spreadsheet-Based Batch Workflow
+1. Create a spreadsheet with columns: `source`, `destination`
+2. Fill in multiple transfers (as many rows as needed)
+3. Export/Save as CSV (`rsync_sources.csv`)
+4. Build config: `./config_builder.sh`
+5. Run transfers: `./rsync_app.sh`
+6. Script processes all transfers sequentially
+7. Review summary and cleanup successful transfers
+
+### YAML Workflow (Advanced Users)
 1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
 2. Edit the configuration file with your transfer settings
 3. Run transfer and validation: `./rsync_app.sh`
@@ -245,20 +330,11 @@ If you've already transferred files manually or with another tool:
 5. Optionally delete source files when prompted
 
 ### Cautious Workflow
-1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
-2. Edit the configuration file with your transfer settings
-3. Transfer only: `./rsync_app.sh -t`
-4. Manually verify some files
-5. Validate: `./rsync_app.sh -v`
-6. Delete sources if validation passes
-
-### Batch Processing Workflow
-1. Copy the example configuration: `cp rsync_config.example.yaml rsync_config.yaml`
-2. Edit the configuration file with multiple transfer groups
-3. Run: `./rsync_app.sh`
-4. Script processes all transfers sequentially
-5. Review summary of all successes/failures
-6. Cleanup successful transfers
+1. Set up your configuration (CSV or YAML method)
+2. Transfer only: `./rsync_app.sh -t`
+3. Manually verify some files
+4. Validate: `./rsync_app.sh -v`
+5. Delete sources if validation passes
 
 ## Output and Logging
 
