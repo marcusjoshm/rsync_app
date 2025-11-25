@@ -16,6 +16,7 @@ NC='\033[0m' # No Color
 # Default file paths
 CSV_FILE="rsync_sources.csv"
 CONFIG_FILE="rsync_config.yaml"
+SKIP_CONFIRM=false
 
 # Function to print colored output
 print_status() {
@@ -33,6 +34,7 @@ usage() {
     echo "Options:"
     echo "  -i, --input <file>    CSV input file (default: rsync_sources.csv)"
     echo "  -o, --output <file>   YAML output file (default: rsync_config.yaml)"
+    echo "  -y, --yes             Skip confirmation prompt (auto-overwrite)"
     echo "  -h, --help            Show this help message"
     echo ""
     echo "CSV Format:"
@@ -104,22 +106,33 @@ EOF
     local valid_count=0
     local warning_count=0
 
-    # Read CSV and parse (skip header)
-    tail -n +2 "$csv_file" | while IFS=, read -r source destination || [ -n "$source" ]; do
+    # Read CSV and parse (skip header) - use process substitution to avoid subshell
+    while IFS= read -r line || [ -n "$line" ]; do
         ((line_num++))
 
         # Skip empty lines and comments
-        if [[ -z "$source" ]] || [[ "$source" =~ ^[[:space:]]*$ ]] || [[ "$source" =~ ^# ]]; then
+        if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*$ ]] || [[ "$line" =~ ^# ]]; then
             continue
         fi
 
-        # Trim whitespace
-        source=$(echo "$source" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        destination=$(echo "$destination" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # Parse CSV line - handle quoted fields and simple comma-separated
+        # Remove any quotes and split by comma
+        local source
+        local destination
+        
+        # Use awk to properly parse CSV (handles quoted fields)
+        if command -v awk &> /dev/null; then
+            source=$(echo "$line" | awk -F',' '{gsub(/^[ \t]+|[ \t]+$/, "", $1); gsub(/^["\047]|["\047]$/, "", $1); print $1}')
+            destination=$(echo "$line" | awk -F',' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); gsub(/^["\047]|["\047]$/, "", $2); print $2}')
+        else
+            # Fallback: simple comma split and trim
+            source=$(echo "$line" | cut -d',' -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["'\'']//;s/["'\'']$//')
+            destination=$(echo "$line" | cut -d',' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["'\'']//;s/["'\'']$//')
+        fi
 
         # Validate both fields are present
-        if [[ -z "$destination" ]]; then
-            print_status $YELLOW "  Warning: Line $((line_num + 1)) missing destination, skipping"
+        if [[ -z "$source" ]] || [[ -z "$destination" ]]; then
+            print_status $YELLOW "  Warning: Line $((line_num + 1)) missing source or destination, skipping"
             ((warning_count++))
             continue
         fi
@@ -137,7 +150,7 @@ EOF
         echo "" >> "$output_file"
 
         ((valid_count++))
-    done
+    done < <(tail -n +2 "$csv_file")
 
     # Report results
     if [ $valid_count -eq 0 ]; then
@@ -185,6 +198,10 @@ parse_arguments() {
                 CONFIG_FILE="$2"
                 shift 2
                 ;;
+            -y|--yes)
+                SKIP_CONFIRM=true
+                shift
+                ;;
             -h|--help)
                 usage
                 ;;
@@ -218,12 +235,16 @@ main() {
 
     # Check if output file exists and warn
     if [ -f "$CONFIG_FILE" ]; then
-        print_status $YELLOW "Warning: $CONFIG_FILE already exists and will be overwritten"
-        read -p "Continue? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_status $YELLOW "Operation cancelled"
-            exit 0
+        if [ "$SKIP_CONFIRM" = false ]; then
+            print_status $YELLOW "Warning: $CONFIG_FILE already exists and will be overwritten"
+            read -p "Continue? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_status $YELLOW "Operation cancelled"
+                exit 0
+            fi
+        else
+            print_status $YELLOW "Warning: $CONFIG_FILE already exists and will be overwritten"
         fi
     fi
 

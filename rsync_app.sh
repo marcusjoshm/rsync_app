@@ -482,12 +482,73 @@ parse_arguments() {
     done
 }
 
+# Function to auto-build config from CSV if needed
+auto_build_config() {
+    local config_file=$1
+    
+    # Try to find CSV file in current directory or script directory
+    local csv_file="rsync_sources.csv"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    if [ ! -f "$csv_file" ]; then
+        # Try in script directory
+        if [ -f "$script_dir/rsync_sources.csv" ]; then
+            csv_file="$script_dir/rsync_sources.csv"
+        else
+            return 0  # No CSV file, proceed normally
+        fi
+    fi
+    
+    # Check if config needs to be built/rebuilt
+    local needs_build=false
+    
+    if [ ! -f "$config_file" ]; then
+        # Config doesn't exist, need to build
+        needs_build=true
+        print_status $CYAN "Config file not found. Building from CSV..."
+    elif [ "$csv_file" -nt "$config_file" ]; then
+        # CSV is newer than config, need to rebuild
+        needs_build=true
+        print_status $CYAN "CSV file is newer than config. Rebuilding config..."
+    fi
+    
+    if [ "$needs_build" = true ]; then
+        # Check if config_builder.sh exists in script directory or current directory
+        local builder_script="$script_dir/config_builder.sh"
+        
+        if [ ! -f "$builder_script" ]; then
+            builder_script="./config_builder.sh"
+            if [ ! -f "$builder_script" ]; then
+                print_status $YELLOW "Warning: config_builder.sh not found. Skipping auto-build."
+                return 0
+            fi
+        fi
+        
+        # Run config builder (non-interactive mode)
+        if bash "$builder_script" -i "$csv_file" -o "$config_file" -y; then
+            print_status $GREEN "✓ Config built successfully from CSV"
+            echo
+            return 0
+        else
+            print_status $RED "ERROR: Failed to build config from CSV"
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
 # Main execution
 main() {
     print_status $BLUE "=== Data Transfer Script ==="
     
     # Parse command line arguments
     parse_arguments "$@"
+    
+    # Auto-build config from CSV if needed
+    if ! auto_build_config "$CONFIG_FILE"; then
+        exit 1
+    fi
     
     # Load configuration
     if ! load_yaml_config "$CONFIG_FILE"; then
